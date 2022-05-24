@@ -1,3 +1,5 @@
+from State import State
+
 class Game(object):
 
     def __init__(self, history=None):
@@ -5,9 +7,16 @@ class Game(object):
         self.child_visits = []
         self.num_actions = 4672
 
+        self.actions = None
+        self.state = State()
+        self.is_terminal = None
+
     # TODO
     def terminal(self):
-        pass
+        if self.is_terminal is not None:
+            return self.is_terminal
+        if self.actions is None:
+            self.actions = self.legal_actions()
 
     # TODO
     def terminal_value(self, to_play):
