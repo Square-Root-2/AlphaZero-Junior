@@ -3,6 +3,7 @@ import random
 import time
 
 from BitboardType import BitboardType
+from Color import Color
 from State import State
 import MoveIndexing
 
@@ -23,10 +24,6 @@ class MoveGenerator(object):
         LEFT = 1
         RIGHT = 2
 
-    class Color(IntEnum):
-        WHITE = 0
-        BLACK = 1
-
     class Direction(IntEnum):
         NORTH = 0
         NORTHEAST = 1
@@ -37,25 +34,17 @@ class MoveGenerator(object):
         WEST = 6
         NORTHWEST = 7
 
-    IS_INITIALIZED = False
-    BEST_SEED = 4599409325970907659
-
     ATTACK_SETS = [64 * [0] for k in range(len(AttackSetType))]
     RAYS = [64 * [0] for k in range(8)]
     MAGIC_NUMBERS = [64 * [0] for k in range(2)]
     KEY_SIZES = [64 * [0] for k in range(2)]
 
+    BEST_SEED = 4599409325970907659
+    IS_INITIALIZED = False
+
     def __init__(self):
         self.best_time = math.inf
         self.start = 0
-        if not MoveGenerator.IS_INITIALIZED:
-            random.seed(MoveGenerator.BEST_SEED)
-            MoveGenerator.initialize_pawn_attack_sets()
-            MoveGenerator.initialize_knight_attack_sets()
-            MoveGenerator.initialize_king_attack_sets()
-            MoveGenerator.initialize_rays()
-            MoveGenerator.initialize_sliding_attack_sets()
-            MoveGenerator.IS_INITIALIZED = True
 
     @staticmethod
     def bitstring_to_int(bitstring):
@@ -64,14 +53,14 @@ class MoveGenerator(object):
     def find_best_seed(self):
         random.seed(MoveGenerator.BEST_SEED)
         self.start = time.time()
-        self.initialize_sliding_attack_sets()
+        MoveGenerator.initialize_sliding_attack_sets()
         end = time.time()
         self.best_time = end - self.start
         print("Best Seed: " + str(MoveGenerator.BEST_SEED) + " (" + str(self.best_time) + "s)")
         while True:
             seed = random.getrandbits(64)
             self.start = time.time()
-            self.initialize_sliding_attack_sets()
+            MoveGenerator.initialize_sliding_attack_sets()
             end = time.time()
             if end - self.start < self.best_time:
                 MoveGenerator.BEST_SEED = seed
@@ -115,7 +104,7 @@ class MoveGenerator(object):
                                                                              "00000000" +
                                                                              "00000000" +
                                                                              "00000000")
-            attack_set = MoveGenerator.get_attack_set(state, MoveGenerator.Color.WHITE)
+            attack_set = MoveGenerator.get_attack_set(state, Color.WHITE)
             i = 0
         else:
             can_kingside_castle = (state.castling_rights & (1 << 0)) > 0
@@ -152,7 +141,7 @@ class MoveGenerator(object):
                                                                              "00000000" +
                                                                              "00000000" +
                                                                              "00011000")
-            attack_set = MoveGenerator.get_attack_set(state, MoveGenerator.Color.BLACK)
+            attack_set = MoveGenerator.get_attack_set(state, Color.BLACK)
             i = 7
 
         if can_kingside_castle and not ~state.bitboards[BitboardType.EMPTY] & kingside_empty_check_bitboard and not kingside_attack_check_bitboard & attack_set:
@@ -291,6 +280,10 @@ class MoveGenerator(object):
                 n = int(math.log2(attack_set & -attack_set))
                 l = n // 8
                 m = n % 8
+                if (l - i, m - j) == (-2, 0):
+                    print(k)
+                    print(n)
+                    MoveGenerator.print_bitboard(attack_set)
                 moves[MoveIndexing.MOVES_PER_LOCATION * k + (
                         MoveIndexing.KNIGHT_MOVE_INDEX + dr_to_index[(l - i, m - j)])] = (
                     i, j, l, m)
@@ -299,6 +292,9 @@ class MoveGenerator(object):
 
     @staticmethod
     def generate_moves(state: State):
+        if not MoveGenerator.IS_INITIALIZED:
+            MoveGenerator.initialize()
+
         moves = {}
         MoveGenerator.generate_pawn_one_forward_moves(state, moves)
         MoveGenerator.generate_pawn_two_forward_moves(state, moves)
@@ -312,20 +308,20 @@ class MoveGenerator(object):
 
         to_remove = []
         hash_code = copy.deepcopy(state.hash_code)
-        for a, move_info in moves.items():
-            state.make_move(a, move_info[0], move_info[1], move_info[2], move_info[3])
+        for action, move_info in moves.items():
+            state.make_move(action, move_info[0], move_info[1], move_info[2], move_info[3])
             if state.active_color:
-                color = MoveGenerator.Color.BLACK
+                color = Color.BLACK
                 king_bitboard = state.bitboards[BitboardType.WHITE_KING]
             else:
-                color = MoveGenerator.Color.WHITE
+                color = Color.WHITE
                 king_bitboard = state.bitboards[BitboardType.BLACK_KING]
             if king_bitboard & MoveGenerator.get_attack_set(state, color):
-                to_remove.append(a)
+                to_remove.append(action)
             state.set_state(hash_code)
 
-        for a in to_remove:
-            moves.pop(a)
+        for action in to_remove:
+            moves.pop(action)
 
         return moves
 
@@ -484,7 +480,7 @@ class MoveGenerator(object):
 
     @staticmethod
     def get_attack_set(state: State, color: Color):
-        if color == MoveGenerator.Color.BLACK:
+        if color == Color.BLACK:
             pawn_character = 'p'
             knight_character = 'n'
             bishop_character = 'b'
@@ -615,6 +611,18 @@ class MoveGenerator(object):
         else:
             direction = MoveGenerator.Direction.NORTHWEST
         return MoveIndexing.MOVES_PER_DIRECTION * direction + max(abs(di), abs(dj)) - 1
+
+    @staticmethod
+    def initialize():
+        if MoveGenerator.IS_INITIALIZED:
+            return
+        random.seed(MoveGenerator.BEST_SEED)
+        MoveGenerator.initialize_pawn_attack_sets()
+        MoveGenerator.initialize_knight_attack_sets()
+        MoveGenerator.initialize_king_attack_sets()
+        MoveGenerator.initialize_rays()
+        MoveGenerator.initialize_sliding_attack_sets()
+        MoveGenerator.IS_INITIALIZED = True
 
     @staticmethod
     def initialize_east_rays():
@@ -910,9 +918,9 @@ class MoveGenerator(object):
         if depth == 1:
             return len(moves)
         total_nodes = 0
-        for a, move_info in moves.items():
+        for action, move_info in moves.items():
             hash_code = copy.deepcopy(state.hash_code)
-            state.make_move(a % MoveIndexing.MOVES_PER_LOCATION, move_info[0], move_info[1], move_info[2], move_info[3])
+            state.make_move(action % MoveIndexing.MOVES_PER_LOCATION, move_info[0], move_info[1], move_info[2], move_info[3])
             nodes = MoveGenerator.perft(state, depth - 1)
             state.set_state(hash_code)
             total_nodes += nodes
@@ -922,13 +930,13 @@ class MoveGenerator(object):
     def perft_root(state: State, depth):
         moves = MoveGenerator.generate_moves(state)
         total_nodes = 0
-        for a, move_info in moves.items():
+        for action, move_info in moves.items():
             hash_code = copy.deepcopy(state.hash_code)
-            state.make_move(a % MoveIndexing.MOVES_PER_LOCATION, move_info[0], move_info[1], move_info[2], move_info[3])
+            state.make_move(action % MoveIndexing.MOVES_PER_LOCATION, move_info[0], move_info[1], move_info[2], move_info[3])
             nodes = MoveGenerator.perft(state, depth - 1)
             state.set_state(hash_code)
             total_nodes += nodes
-            print(MoveGenerator.move_to_lan(state, a % MoveIndexing.MOVES_PER_LOCATION, move_info[0], move_info[1], move_info[2], move_info[3]) + ": " + str(nodes))
+            print(MoveGenerator.move_to_lan(state, action % MoveIndexing.MOVES_PER_LOCATION, move_info[0], move_info[1], move_info[2], move_info[3]) + ": " + str(nodes))
         print()
         print("Nodes searched: " + str(total_nodes))
         print()

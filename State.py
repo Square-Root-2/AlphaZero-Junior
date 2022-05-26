@@ -20,7 +20,7 @@ class State(object):
         'k': BitboardType.BLACK_KING
     }
 
-    def __init__(self, fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"):
+    def __init__(self, fen="rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"):
         k = 0
 
         # piece placement
@@ -83,6 +83,14 @@ class State(object):
         self.halfmove_clock = int(fen[k: l])
 
         self.hash_code = (self.mailbox, self.active_color, self.castling_rights, self.possible_en_passant_target, self.halfmove_clock)
+
+    def clone(self):
+        state = State()
+        state.set_state(self.hash_code)
+        return state
+
+    def get_key(self):
+        return tuple(self.mailbox), self.active_color, self.castling_rights, self.possible_en_passant_target
 
     def make_move(self, move_index, i, j, k, l):
         castling_row = [7, 0]
@@ -208,6 +216,7 @@ class State(object):
                 self.bitboards[BitboardType.WHITE] -= 1 << (8 * i + j)
             self.bitboards[BitboardType.EMPTY] += 1 << (8 * i + j)
             self.mailbox[8 * i + j] = '.'
+
         if c != '.':
             self. bitboards[State.CHARACTER_TO_BITBOARD_TYPE[c]] += 1 << (8 * i + j)
             if c.islower():
@@ -228,6 +237,7 @@ class State(object):
                     self.bitboards[BitboardType.WHITE] += 1 << k
             else:
                 self.bitboards[BitboardType.EMPTY] += 1 << k
+
         self.mailbox = list(hash_code[0])
         self.active_color = hash_code[1]
         self.castling_rights = hash_code[2]

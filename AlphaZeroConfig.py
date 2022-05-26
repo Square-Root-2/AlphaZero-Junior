@@ -1,8 +1,22 @@
+import keras
+import tensorflow as tf
+
+
 class AlphaZeroConfig(object):
+
+    class CustomLearningRateSchedule(tf.keras.optimizers.schedules.LearningRateSchedule):
+        def __call__(self, step):
+            if step < 100e3:
+                return 2e-1
+            if step < 300e3:
+                return 2e-2
+            if step < 500e3:
+                return 2e-3
+            return 2e-4
 
     def __init__(self):
         ### Self-Play
-        self.num_actors = 5000
+        self.num_actors = 25
 
         self.num_sampling_moves = 30
         self.max_moves = 512
@@ -24,9 +38,4 @@ class AlphaZeroConfig(object):
 
         self.weight_decay = 1e-4
         self.momentum = 0.9
-        self.learning_rate_schedule = {
-            0: 2e-1,
-            100e3: 2e-2,
-            300e3: 2e-3,
-            500e3: 2e-4
-        }
+        self.learning_rate_schedule = AlphaZeroConfig.CustomLearningRateSchedule()

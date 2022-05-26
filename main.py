@@ -1,9 +1,13 @@
+from AlphaZeroConfig import AlphaZeroConfig
 from MoveGenerator import MoveGenerator
-from State import State
+import training
 
-mg = MoveGenerator()
-while True:
-    fen = input()
-    s = State(fen)
-    depth = int(input())
-    mg.perft_root(s, depth)
+
+def train():
+    MoveGenerator.initialize()
+    config = AlphaZeroConfig()
+    net = training.alphazero(config)
+    net.model.save('model')
+
+
+train()

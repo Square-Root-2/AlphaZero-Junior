@@ -10,6 +10,12 @@ import numpy
 import tensorflow as tf
 import threading
 from typing import List
+from threading import Semaphore
+
+index = {}
+game_number = {}
+move_number = {}
+screenlock = Semaphore()
 
 # AlphaZero training is split into two independent parts: Network training and
 # self-play data generation.
@@ -23,8 +29,14 @@ def alphazero(config: AlphaZeroConfig):
     replay_buffer = ReplayBuffer(config)
 
     for i in range(config.num_actors):
-        thread = threading.Thread(target=run_selfplay, args=(config, storage, replay_buffer))
+        thread = threading.Thread(target=run_selfplay, name=str(i), args=(config, storage, replay_buffer))
+        index[thread.name] = i
+        game_number[thread.name] = 1
+        move_number[thread.name] = 1
         thread.start()
+
+    while len(replay_buffer.buffer) == 0:
+        continue
 
     train_network(config, storage, replay_buffer)
 
@@ -44,6 +56,7 @@ def run_selfplay(config: AlphaZeroConfig, storage: SharedStorage,
         network = storage.latest_network()
         game = play_game(config, network)
         replay_buffer.save_game(game)
+        game_number[threading.current_thread().name] += 1
 
 
 # Each game is produced by starting at the initial board position, then
@@ -51,10 +64,13 @@ def run_selfplay(config: AlphaZeroConfig, storage: SharedStorage,
 # of the game is reached.
 def play_game(config: AlphaZeroConfig, network: Network):
     game = Game()
-    while not game.terminal() and len(game.history) < config.max_moves:
-        action, root = run_mcts(config, game, network)
+    root = Node(0)
+    while not game.terminal() and len(game.history) - 1 < config.max_moves:
+        action = run_mcts(config, game, network, root)
         game.apply(action)
         game.store_search_statistics(root)
+        root = root.children[action]
+        move_number[threading.current_thread().name] += 1
     return game
 
 
@@ -62,12 +78,21 @@ def play_game(config: AlphaZeroConfig, network: Network):
 # To decide on an action, we run N simulations, always starting at the root of
 # the search tree and traversing the tree according to the UCB formula until we
 # reach a leaf node.
-def run_mcts(config: AlphaZeroConfig, game: Game, network: Network):
-    root = Node(0)
-    evaluate(root, game, network)
+def run_mcts(config: AlphaZeroConfig, game: Game, network: Network, root: Node):
+    if not root.expanded():
+        evaluate(root, game, network)
     add_exploration_noise(config, root)
 
-    for _ in range(config.num_simulations):
+    simulations = sum(root.children[action].visit_count for action in root.children.keys())
+
+    screenlock.acquire()
+    print("Thread " + str(index[threading.current_thread().name]) + ": " + str(
+        config.num_simulations - simulations) + " simulations left (Game "
+          + str(game_number[threading.current_thread().name]) + ", Move " + str(
+        move_number[threading.current_thread().name]) + ")")
+    screenlock.release()
+
+    while simulations < config.num_simulations:
         node = root
         scratch_game = game.clone()
         search_path = [node]
@@ -78,17 +103,27 @@ def run_mcts(config: AlphaZeroConfig, game: Game, network: Network):
             search_path.append(node)
 
         if scratch_game.terminal():
-            value = scratch_game.terminal_value()
+            value = scratch_game.terminal_value(game.to_play())
         else:
             value = evaluate(node, scratch_game, network)
-        backpropagate(search_path, value, scratch_game.to.play())
-    return select_action(config, game, root), root
+
+        backpropagate(search_path, value, scratch_game.to_play())
+
+        simulations += 1
+
+        if (config.num_simulations - simulations) % 50 == 0:
+            screenlock.acquire()
+            print("Thread " + str(index[threading.current_thread().name]) + ": " + str(config.num_simulations - simulations) + " simulations left (Game "
+                  + str(game_number[threading.current_thread().name]) + ", Move " + str(move_number[threading.current_thread().name]) + ")")
+            screenlock.release()
+
+    return select_action(config, game, root)
 
 
 def select_action(config: AlphaZeroConfig, game: Game, root: Node):
     visit_counts = [(child.visit_count, action)
                     for action, child in root.children.items()]
-    if len(game.history) < config.num_sampling_moves:
+    if len(game.history) - 1 < config.num_sampling_moves:
         _, action = softmax_sample(visit_counts)
     else:
         _, action = max(visit_counts)
@@ -158,28 +193,36 @@ def train_network(config: AlphaZeroConfig, storage: SharedStorage,
     network = Network()
     optimizer = tf.keras.optimizers.SGD(config.learning_rate_schedule,
                                         config.momentum)
+    network.model.save('model0')
     for i in range(config.training_steps):
+        screenlock.acquire()
+        print()
+        print("Training step: " + str(i))
+        print()
+        screenlock.release()
         if i % config.checkpoint_interval == 0:
             storage.save_network(i, network)
         batch = replay_buffer.sample_batch()
         update_weights(optimizer, network, batch, config.weight_decay)
+        network.model.save('model' + str(i + 1))
     storage.save_network(config.training_steps, network)
 
 
 def update_weights(optimizer: tf.keras.optimizers.SGD, network: Network, batch,
                    weight_decay: float):
     loss = 0
-    for image, (target_value, target_policy) in batch:
-        value, policy_logits = network.inference(image)
-        loss += (
-            tf.losses.mean_squared_error(value, target_value) +
-            tf.nn.softmax_cross_entropy_with_logits(
-                logits=policy_logits, labels=target_policy))
+    with tf.GradientTape() as tape:
+        for image, (target_value, target_policy) in batch:
+            value, policy_logits = network.inference(image)
+            loss += (
+                    tf.cast(tf.keras.metrics.mean_squared_error([value], [target_value]), dtype=tf.float32) +
+                    tf.nn.softmax_cross_entropy_with_logits(
+                        logits=policy_logits, labels=target_policy))
 
-    for weights in network.get_weights():
-        loss += weight_decay * tf.nn.l2_loss(weights)
+        for weights in network.get_weights():
+            loss += weight_decay * tf.nn.l2_loss(weights)
 
-    optimizer.minimize(loss)
+    optimizer.apply_gradients(zip(tape.gradient(loss, network.model.trainable_weights), network.model.trainable_weights))
 
 
 ######### End Training ###########
@@ -187,6 +230,7 @@ def update_weights(optimizer: tf.keras.optimizers.SGD, network: Network, batch,
 
 def softmax_sample(visit_counts):
     visit_counts_sum = sum(visit_count for (visit_count, action) in visit_counts)
-    return numpy.random.choice(
-            visit_counts,
+    k = numpy.random.choice(
+            len(visit_counts),
             p=[visit_count / visit_counts_sum for (visit_count, action) in visit_counts])
+    return visit_counts[k]

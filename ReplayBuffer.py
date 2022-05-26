@@ -17,10 +17,10 @@ class ReplayBuffer(object):
 
     def sample_batch(self):
         # Sample uniformly across positions.
-        move_sum = float(sum(len(g.history) for g in self.buffer))
+        move_sum = float(sum(len(g.history) - 1 for g in self.buffer))
         games = numpy.random.choice(
             self.buffer,
             size=self.batch_size,
-            p=[len(g.history) / move_sum for g in self.buffer])
-        game_pos = [(g, numpy.random.randint(len(g.history))) for g in games]
+            p=[(len(g.history) - 1) / move_sum for g in self.buffer])
+        game_pos = [(g, numpy.random.randint(len(g.history) - 1)) for g in games]
         return [(g.make_image(i), g.make_target(i)) for (g, i) in game_pos]
