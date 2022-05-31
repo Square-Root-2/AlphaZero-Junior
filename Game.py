@@ -6,6 +6,7 @@ from State import State
 from enum import IntEnum
 import tensorflow as tf
 
+
 class Game(object):
 
     class FeaturePlaneType(IntEnum):
@@ -102,6 +103,12 @@ class Game(object):
             self.z = 0
             return True
 
+        # 512-move rule
+        if len(self.history) - 1 >= 512:
+            self.is_terminal = True
+            self.z = 0
+            return True
+
         self.is_terminal = False
         return False
 
@@ -134,7 +141,6 @@ class Game(object):
         self.counts[self.history[-1].get_key()] += 1
 
         self.is_terminal = None
-        self.z = None
 
     def store_search_statistics(self, root):
         sum_visits = sum(child.visit_count for child in root.children.values())
@@ -170,11 +176,11 @@ class Game(object):
             if self.history[state_index].castling_rights & (1 << k):
                 image[i[k]][j[k]][Game.FeaturePlaneType.CASTLING_RIGHTS] = 1
 
-        return tf.expand_dims(tf.constant(image), axis=0)
+        return tf.constant(image)
 
     def make_target(self, state_index: int):
-        return (self.terminal_value(state_index % 2),
-                self.child_visits[state_index])
+        return (tf.constant([self.terminal_value(state_index % 2)], dtype=tf.float32),
+                tf.constant(self.child_visits[state_index]))
 
     def to_play(self):
         return (len(self.history) + 1) % 2

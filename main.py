@@ -1,13 +1,16 @@
 from AlphaZeroConfig import AlphaZeroConfig
 from MoveGenerator import MoveGenerator
+
 import training
 
 
-def train():
+def train(num_actors=6, checkpoint_interval=10):
     MoveGenerator.initialize()
     config = AlphaZeroConfig()
-    net = training.alphazero(config)
-    net.model.save('model')
+    config.num_actors = num_actors
+    config.checkpoint_interval = checkpoint_interval
+    training.alphazero(config)
 
 
-train()
+if __name__ == '__main__':
+    train()

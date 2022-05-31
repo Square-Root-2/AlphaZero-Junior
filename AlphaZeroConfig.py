@@ -1,4 +1,3 @@
-import keras
 import tensorflow as tf
 
 
@@ -16,7 +15,7 @@ class AlphaZeroConfig(object):
 
     def __init__(self):
         ### Self-Play
-        self.num_actors = 25
+        self.num_actors = 5000
 
         self.num_sampling_moves = 30
         self.max_moves = 512
@@ -35,6 +34,7 @@ class AlphaZeroConfig(object):
         self.checkpoint_interval = int(1e3)
         self.window_size = int(1e6)
         self.batch_size = 4096
+        self.pseudobatch_size = 1024
 
         self.weight_decay = 1e-4
         self.momentum = 0.9

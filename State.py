@@ -1,5 +1,3 @@
-import copy
-
 from BitboardType import BitboardType
 import MoveIndexing
 

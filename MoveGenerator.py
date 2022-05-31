@@ -1,14 +1,13 @@
-import copy
-import random
-import time
-
 from BitboardType import BitboardType
 from Color import Color
 from State import State
 import MoveIndexing
 
+import copy
 from enum import IntEnum
 import math
+import random
+import time
 
 
 class MoveGenerator(object):
