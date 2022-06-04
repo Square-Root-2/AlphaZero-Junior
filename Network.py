@@ -5,8 +5,12 @@ import tensorflow as tf
 
 class Network(object):
 
-    def __init__(self, is_uniform=False):
+    def __init__(self, model=None, is_uniform=False):
         if is_uniform:
+            return
+
+        if model is not None:
+            self.model = model
             return
 
         inputs = Input(shape=(8, 8, 16))

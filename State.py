@@ -113,17 +113,17 @@ class State(object):
             self.set_square(i, l, '.')
 
         if is_promotion:
-            if move_index < MoveIndexing.UNDERPROMOTION_INDEX:
+            if move_index < MoveIndexing.UNDERPROMOTION_BEGINNING_INDEX:
                 if self.active_color:
                     self.set_square(k, l, 'q')
                 else:
                     self.set_square(k, l, 'Q')
-            elif (move_index - MoveIndexing.UNDERPROMOTION_INDEX) % 3 == 0:
+            elif (move_index - MoveIndexing.UNDERPROMOTION_BEGINNING_INDEX) % 3 == 0:
                 if self.active_color:
                     self.set_square(k, l, 'r')
                 else:
                     self.set_square(k, l, 'R')
-            elif (move_index - MoveIndexing.UNDERPROMOTION_INDEX) % 3 == 1:
+            elif (move_index - MoveIndexing.UNDERPROMOTION_BEGINNING_INDEX) % 3 == 1:
                 if self.active_color:
                     self.set_square(k, l, 'b')
                 else:

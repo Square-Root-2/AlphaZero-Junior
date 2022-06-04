@@ -144,12 +144,10 @@ class MoveGenerator(object):
             i = 7
 
         if can_kingside_castle and not ~state.bitboards[BitboardType.EMPTY] & kingside_empty_check_bitboard and not kingside_attack_check_bitboard & attack_set:
-            moves[MoveIndexing.MOVES_PER_LOCATION * (8 * i + 4) + (
-                    MoveIndexing.MOVES_PER_DIRECTION * MoveGenerator.Direction.EAST + 1)] = (i, 4, i, 6)
+            moves[MoveIndexing.MOVES_PER_LOCATION * (8 * i + 4) + MoveGenerator.get_directional_move_index(0, 2)] = (i, 4, i, 6)
 
         if can_queenside_castle and not ~state.bitboards[BitboardType.EMPTY] & queenside_empty_check_bitboard and not queenside_attack_check_bitboard & attack_set:
-            moves[MoveIndexing.MOVES_PER_LOCATION * (8 * i + 4) + (
-                    MoveIndexing.MOVES_PER_DIRECTION * MoveGenerator.Direction.WEST + 1)] = (i, 4, i, 2)
+            moves[MoveIndexing.MOVES_PER_LOCATION * (8 * i + 4) + MoveGenerator.get_directional_move_index(0, -2)] = (i, 4, i, 2)
 
     @staticmethod
     def generate_column_moves(state: State, moves):
@@ -169,7 +167,7 @@ class MoveGenerator(object):
                 n = int(math.log2(attack_set & -attack_set))
                 l = n // 8
                 m = n % 8
-                moves[MoveIndexing.MOVES_PER_LOCATION * k + MoveGenerator.get_sliding_move_index(l - i, m - j)] = (
+                moves[MoveIndexing.MOVES_PER_LOCATION * k + MoveGenerator.get_directional_move_index(l - i, m - j)] = (
                     i, j, l, m)
                 attack_set -= 1 << n
             column_pieces -= 1 << k
@@ -192,7 +190,7 @@ class MoveGenerator(object):
                 n = int(math.log2(attack_set & -attack_set))
                 l = n // 8
                 m = n % 8
-                moves[MoveIndexing.MOVES_PER_LOCATION * k + MoveGenerator.get_sliding_move_index(l - i, m - j)] = (
+                moves[MoveIndexing.MOVES_PER_LOCATION * k + MoveGenerator.get_directional_move_index(l - i, m - j)] = (
                     i, j, l, m)
                 attack_set -= 1 << n
             diagonal_pieces -= 1 << k
@@ -204,12 +202,10 @@ class MoveGenerator(object):
         if state.active_color:
             active_pawn_bitboard = state.bitboards[BitboardType.BLACK_PAWN]
             k = 4
-            directions = [MoveGenerator.Direction.NORTHWEST, MoveGenerator.Direction.NORTHEAST]
             dk = 1
         else:
             active_pawn_bitboard = state.bitboards[BitboardType.WHITE_PAWN]
             k = 3
-            directions = [MoveGenerator.Direction.SOUTHWEST, MoveGenerator.Direction.SOUTHEAST]
             dk = -1
         l = state.possible_en_passant_target
         dl = [-1, 1]
@@ -217,8 +213,7 @@ class MoveGenerator(object):
             if l + dl[m] < 0 or l + dl[m] >= 8:
                 continue
             if active_pawn_bitboard & 1 << (8 * k + (l + dl[m])):
-                moves[MoveIndexing.MOVES_PER_LOCATION * (8 * k + (l + dl[m])) + (
-                        MoveIndexing.MOVES_PER_DIRECTION * directions[dl[m] < 0])] = (k, l + dl[m], k + dk, l)
+                moves[MoveIndexing.MOVES_PER_LOCATION * (8 * k + (l + dl[m])) + MoveGenerator.get_directional_move_index(dk, -dl[m])] = (k, l + dl[m], k + dk, l)
 
     @staticmethod
     def generate_king_moves(state: State, moves):
@@ -228,16 +223,6 @@ class MoveGenerator(object):
         else:
             kings = state.bitboards[BitboardType.WHITE_KING]
             active_bitboard = state.bitboards[BitboardType.WHITE]
-        dr_to_direction = {
-            (-1, 0): MoveGenerator.Direction.NORTH,
-            (-1, 1): MoveGenerator.Direction.NORTHEAST,
-            (0, 1): MoveGenerator.Direction.EAST,
-            (1, 1): MoveGenerator.Direction.SOUTHEAST,
-            (1, 0): MoveGenerator.Direction.SOUTH,
-            (1, -1): MoveGenerator.Direction.SOUTHWEST,
-            (0, -1): MoveGenerator.Direction.WEST,
-            (-1, -1): MoveGenerator.Direction.NORTHWEST
-        }
         while kings > 0:
             k = int(math.log2(kings & -kings))
             i = k // 8
@@ -247,8 +232,7 @@ class MoveGenerator(object):
                 n = int(math.log2(attack_set & -attack_set))
                 l = n // 8
                 m = n % 8
-                moves[MoveIndexing.MOVES_PER_LOCATION * k + (
-                        MoveIndexing.MOVES_PER_DIRECTION * dr_to_direction[(l - i, m - j)])] = (i, j, l, m)
+                moves[MoveIndexing.MOVES_PER_LOCATION * k + MoveGenerator.get_directional_move_index(l - i, m - j)] = (i, j, l, m)
                 attack_set -= 1 << n
             kings -= 1 << k
 
@@ -260,16 +244,6 @@ class MoveGenerator(object):
         else:
             knights = state.bitboards[BitboardType.WHITE_KNIGHT]
             active_bitboard = state.bitboards[BitboardType.WHITE]
-        dr_to_index = {
-            (-2, 1): 0,
-            (-1, 2): 1,
-            (1, 2): 2,
-            (2, 1): 3,
-            (2, -1): 4,
-            (1, -2): 5,
-            (-1, -2): 6,
-            (-2, -1): 7
-        }
         while knights > 0:
             k = int(math.log2(knights & -knights))
             i = k // 8
@@ -283,9 +257,7 @@ class MoveGenerator(object):
                     print(k)
                     print(n)
                     MoveGenerator.print_bitboard(attack_set)
-                moves[MoveIndexing.MOVES_PER_LOCATION * k + (
-                        MoveIndexing.KNIGHT_MOVE_INDEX + dr_to_index[(l - i, m - j)])] = (
-                    i, j, l, m)
+                moves[MoveIndexing.MOVES_PER_LOCATION * k + MoveGenerator.get_knight_move_index(l - i, m - j)] = (i, j, l, m)
                 attack_set -= 1 << n
             knights -= 1 << k
 
@@ -330,13 +302,11 @@ class MoveGenerator(object):
             pawns = state.bitboards[BitboardType.BLACK_PAWN]
             attack_sets = MoveGenerator.ATTACK_SETS[MoveGenerator.AttackSetType.BLACK_PAWN]
             inactive_bitboard = state.bitboards[BitboardType.WHITE]
-            directions = [MoveGenerator.Direction.NORTHWEST, MoveGenerator.Direction.NORTHEAST]
             promotion_l = 7
         else:
             pawns = state.bitboards[BitboardType.WHITE_PAWN]
             attack_sets = MoveGenerator.ATTACK_SETS[MoveGenerator.AttackSetType.WHITE_PAWN]
             inactive_bitboard = state.bitboards[BitboardType.BLACK]
-            directions = [MoveGenerator.Direction.SOUTHWEST, MoveGenerator.Direction.SOUTHEAST]
             promotion_l = 0
         while pawns > 0:
             k = int(math.log2(pawns & -pawns))
@@ -351,12 +321,12 @@ class MoveGenerator(object):
                 n = int(math.log2(attack_set & -attack_set))
                 l = n // 8
                 m = n % 8
-                moves[MoveIndexing.MOVES_PER_LOCATION * k + (MoveIndexing.MOVES_PER_DIRECTION * directions[m > j])] = (
+                moves[MoveIndexing.MOVES_PER_LOCATION * k + MoveGenerator.get_directional_move_index(l - i, m - j)] = (
                     i, j, l, m)
                 if l == promotion_l:
                     for o in range(3):
                         moves[MoveIndexing.MOVES_PER_LOCATION * k + (
-                                MoveIndexing.UNDERPROMOTION_INDEX + 3 * dj_to_capture_underpromotion_type[
+                                MoveIndexing.UNDERPROMOTION_BEGINNING_INDEX + 3 * dj_to_capture_underpromotion_type[
                             (m - j)] + o)] = (
                             i, j, l, m)
                 attack_set -= 1 << n
@@ -378,11 +348,11 @@ class MoveGenerator(object):
             k = int(math.log2(pawns & -pawns))
             i = k // 8
             j = k % 8
-            moves[MoveIndexing.MOVES_PER_LOCATION * k + (MoveIndexing.MOVES_PER_DIRECTION * direction)] = (
+            moves[MoveIndexing.MOVES_PER_LOCATION * k + MoveGenerator.get_directional_move_index(di, 0)] = (
                 i, j, i + di, j)
             if i == promotion_i:
                 for l in range(3):
-                    moves[MoveIndexing.MOVES_PER_LOCATION * k + (MoveIndexing.UNDERPROMOTION_INDEX + l)] = (
+                    moves[MoveIndexing.MOVES_PER_LOCATION * k + (MoveIndexing.UNDERPROMOTION_BEGINNING_INDEX + l)] = (
                         i, j, i + di, j)
             pawns -= 1 << k
 
@@ -400,7 +370,6 @@ class MoveGenerator(object):
                                                      "00000000" +
                                                      "00000000" +
                                                      "00000000")
-            direction = MoveGenerator.Direction.SOUTH
             di = 1
         else:
             pawns = (state.bitboards[BitboardType.EMPTY] << 8) \
@@ -414,13 +383,12 @@ class MoveGenerator(object):
                                                      "00000000" +
                                                      "11111111" +
                                                      "00000000")
-            direction = MoveGenerator.Direction.NORTH
             di = -1
         while pawns > 0:
             k = int(math.log2(pawns & -pawns))
             i = k // 8
             j = k % 8
-            moves[MoveIndexing.MOVES_PER_LOCATION * k + (MoveIndexing.MOVES_PER_DIRECTION * direction + 1)] = (
+            moves[MoveIndexing.MOVES_PER_LOCATION * k + MoveGenerator.get_directional_move_index(2 * di, 0)] = (
                 i, j, i + 2 * di, j)
             pawns -= 1 << k
 
@@ -510,6 +478,48 @@ class MoveGenerator(object):
         return attack_set
 
     @staticmethod
+    def get_directional_move_index(di, dj):
+        if di < 0 and dj == 0:
+            direction = MoveGenerator.Direction.NORTH
+        elif di < 0 and dj > 0 and abs(di) == abs(dj):
+            direction = MoveGenerator.Direction.NORTHEAST
+        elif di == 0 and dj > 0:
+            direction = MoveGenerator.Direction.EAST
+        elif di > 0 and dj > 0 and abs(di) == abs(dj):
+            direction = MoveGenerator.Direction.SOUTHEAST
+        elif di > 0 and dj == 0:
+            direction = MoveGenerator.Direction.SOUTH
+        elif di > 0 and dj < 0 and abs(di) == abs(dj):
+            direction = MoveGenerator.Direction.SOUTHWEST
+        elif di == 0 and dj < 0:
+            direction = MoveGenerator.Direction.WEST
+        elif di < 0 and dj < 0 and abs(di) == abs(dj):
+            direction = MoveGenerator.Direction.NORTHWEST
+        else:
+            return -1
+        return MoveIndexing.MOVES_PER_DIRECTION * direction + max(abs(di), abs(dj)) - 1
+
+    @staticmethod
+    def get_knight_move_index(di, dj):
+        if di == -2 and dj == 1:
+            return MoveIndexing.KNIGHT_MOVE_BEGINNING_INDEX
+        if di == -1 and dj == 2:
+            return MoveIndexing.KNIGHT_MOVE_BEGINNING_INDEX + 1
+        if di == 1 and dj == 2:
+            return MoveIndexing.KNIGHT_MOVE_BEGINNING_INDEX + 2
+        if di == 2 and dj == 1:
+            return MoveIndexing.KNIGHT_MOVE_BEGINNING_INDEX + 3
+        if di == 2 and dj == -1:
+            return MoveIndexing.KNIGHT_MOVE_BEGINNING_INDEX + 4
+        if di == 1 and dj == -2:
+            return MoveIndexing.KNIGHT_MOVE_BEGINNING_INDEX + 5
+        if di == -1 and dj == -2:
+            return MoveIndexing.KNIGHT_MOVE_BEGINNING_INDEX + 6
+        if di == -2 and dj == -1:
+            return MoveIndexing.KNIGHT_MOVE_BEGINNING_INDEX + 7
+        return -1
+
+    @staticmethod
     def get_sliding_attack_set(attack_set_type: AttackSetType, k, state: State):
         if attack_set_type == MoveGenerator.AttackSetType.COLUMN:
             masked_blockers = ~state.bitboards[BitboardType.EMPTY] \
@@ -590,26 +600,6 @@ class MoveGenerator(object):
         key = ((masked_blockers * MoveGenerator.MAGIC_NUMBERS[attack_set_type][k]) % (1 << 64)) >> (
                 64 - MoveGenerator.KEY_SIZES[attack_set_type][k])
         return MoveGenerator.ATTACK_SETS[attack_set_type][k][key]
-
-    @staticmethod
-    def get_sliding_move_index(di, dj):
-        if di < 0 and dj == 0:
-            direction = MoveGenerator.Direction.NORTH
-        elif di < 0 and dj > 0:
-            direction = MoveGenerator.Direction.NORTHEAST
-        elif di == 0 and dj > 0:
-            direction = MoveGenerator.Direction.EAST
-        elif di > 0 and dj > 0:
-            direction = MoveGenerator.Direction.SOUTHEAST
-        elif di > 0 and dj == 0:
-            direction = MoveGenerator.Direction.SOUTH
-        elif di > 0 and dj < 0:
-            direction = MoveGenerator.Direction.SOUTHWEST
-        elif di == 0 and dj < 0:
-            direction = MoveGenerator.Direction.WEST
-        else:
-            direction = MoveGenerator.Direction.NORTHWEST
-        return MoveIndexing.MOVES_PER_DIRECTION * direction + max(abs(di), abs(dj)) - 1
 
     @staticmethod
     def initialize():
@@ -900,11 +890,11 @@ class MoveGenerator(object):
         is_promotion = state.mailbox[8 * i + j].lower() == 'p' and (k == 0 or k == 7)
         if not is_promotion:
             return chr(j + ord('a')) + str(8 - i) + chr(l + ord('a')) + str(8 - k)
-        elif move_index < MoveIndexing.UNDERPROMOTION_INDEX:
+        elif move_index < MoveIndexing.UNDERPROMOTION_BEGINNING_INDEX:
             return chr(j + ord('a')) + str(8 - i) + chr(l + ord('a')) + str(8 - k) + 'q'
-        elif (move_index - MoveIndexing.UNDERPROMOTION_INDEX) % 3 == 0:
+        elif (move_index - MoveIndexing.UNDERPROMOTION_BEGINNING_INDEX) % 3 == 0:
             return chr(j + ord('a')) + str(8 - i) + chr(l + ord('a')) + str(8 - k) + 'r'
-        elif (move_index - MoveIndexing.UNDERPROMOTION_INDEX) % 3 == 1:
+        elif (move_index - MoveIndexing.UNDERPROMOTION_BEGINNING_INDEX) % 3 == 1:
             return chr(j + ord('a')) + str(8 - i) + chr(l + ord('a')) + str(8 - k) + 'b'
         else:
             return chr(j + ord('a')) + str(8 - i) + chr(l + ord('a')) + str(8 - k) + 'n'

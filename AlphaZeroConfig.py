@@ -15,7 +15,7 @@ class AlphaZeroConfig(object):
 
     def __init__(self):
         ### Self-Play
-        self.num_actors = 5000
+        self.num_actors = 500
 
         self.num_sampling_moves = 30
         self.max_moves = 512

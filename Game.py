@@ -41,6 +41,7 @@ class Game(object):
             self.counts[state.get_key()] += 1
 
         self.is_terminal = None
+        self.terminal_string = None
         self.z = None
 
     def terminal(self):
@@ -61,8 +62,10 @@ class Game(object):
             self.is_terminal = True
 
             if king_bitboard & attack_set:  # checkmate
+                self.terminal_string = "checkmate"
                 self.z = -1
             else:  # stalemate
+                self.terminal_string = "stalemate"
                 self.z = 0
 
             return True
@@ -81,6 +84,7 @@ class Game(object):
             # king (+ minor piece) vs king (+ minor piece)
             if white_knight_count + white_bishop_count <= 1 and black_knight_count + black_bishop_count <= 1:
                 self.is_terminal = True
+                self.terminal_string = "insufficient material"
                 self.z = 0
                 return True
 
@@ -88,18 +92,21 @@ class Game(object):
             if white_knight_count + white_bishop_count + black_knight_count + black_bishop_count == 2 and (
                     white_knight_count == 2 or black_knight_count == 2):
                 self.is_terminal = True
+                self.terminal_string = "insufficient material"
                 self.z = 0
                 return True
 
         # 50-move rule
         if self.history[-1].halfmove_clock >= 50:
             self.is_terminal = True
+            self.terminal_string = "50-move rule"
             self.z = 0
             return True
 
         # repetition
         if self.counts.get(self.history[-1].get_key(), 0) >= 3:
             self.is_terminal = True
+            self.terminal_string = "repetition"
             self.z = 0
             return True
 

@@ -1,5 +1,6 @@
 from AlphaZeroConfig import AlphaZeroConfig
 from Game import Game
+from MoveGenerator import MoveGenerator
 import MoveIndexing
 from Network import Network
 from Node import Node
@@ -31,7 +32,7 @@ def alphazero(config: AlphaZeroConfig):
     manager.start()
 
     replay_buffer = manager.ReplayBuffer(config)
-    step = manager.Value('i', 0)
+    step = manager.Value('i', 186)  # change to 0 if restarting training loop
     screen_lock = manager.Lock()
 
     pool = Pool(config.num_actors)
@@ -55,8 +56,9 @@ def alphazero(config: AlphaZeroConfig):
 def run_selfplay(config: AlphaZeroConfig, replay_buffer: ReplayBuffer, step: Value, screen_lock: Lock):
     global game_number, move_number
     while True:
-        network = latest_network(step.value)
-        game = play_game(config, network, screen_lock)
+        game_step = step.value
+        network = latest_network(game_step)
+        game = play_game(config, network, screen_lock, game_step)
         replay_buffer.save_game(game)
         game_number += 1
         move_number = 1
@@ -65,7 +67,7 @@ def run_selfplay(config: AlphaZeroConfig, replay_buffer: ReplayBuffer, step: Val
 # Each game is produced by starting at the initial board position, then
 # repeatedly executing a Monte Carlo Tree Search to generate moves until the end
 # of the game is reached.
-def play_game(config: AlphaZeroConfig, network: Network, screen_lock: Lock):
+def play_game(config: AlphaZeroConfig, network: Network, screen_lock: Lock, step: int):
     global game_number, move_number
     game = Game()
     root = Node(0)
@@ -75,7 +77,7 @@ def play_game(config: AlphaZeroConfig, network: Network, screen_lock: Lock):
         game.store_search_statistics(root)
         root = root.children[action]
         with screen_lock:
-            print(multiprocessing.current_process().name + ", Game " + str(game_number) + ", Move " + str(move_number))
+            print(multiprocessing.current_process().name + ", Step " + str(step) + ", Game " + str(game_number) + ", Move " + str(move_number))
             game.history[-1].print()
         move_number += 1
     return game
@@ -268,3 +270,11 @@ def save_network(step: int, network: Network, game_generator=True):
         network.model.save('model')
     else:
         network.model.save('model' + str(step))
+
+
+def train(num_actors, checkpoint_interval):
+    MoveGenerator.initialize()
+    config = AlphaZeroConfig()
+    config.num_actors = num_actors
+    config.checkpoint_interval = checkpoint_interval
+    alphazero(config)
