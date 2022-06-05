@@ -32,7 +32,7 @@ def alphazero(config: AlphaZeroConfig):
     manager.start()
 
     replay_buffer = manager.ReplayBuffer(config)
-    step = manager.Value('i', 186)  # change to 0 if restarting training loop
+    step = manager.Value('i', 246)
     screen_lock = manager.Lock()
 
     pool = Pool(config.num_actors)
@@ -193,7 +193,7 @@ def train_network(config: AlphaZeroConfig, replay_buffer: ReplayBuffer, step: Va
     network = Network()
     optimizer = tf.keras.optimizers.SGD(config.learning_rate_schedule,
                                         config.momentum)
-    for i in range(config.training_steps):
+    for i in range(step.value, config.training_steps):
         loss = 0
         gradient = [tf.Variable(np.zeros(weights.shape), dtype=tf.float32) for weights in network.get_weights()]
         for j in range(config.batch_size // config.pseudobatch_size):
@@ -272,9 +272,9 @@ def save_network(step: int, network: Network, game_generator=True):
         network.model.save('model' + str(step))
 
 
-def train(num_actors, checkpoint_interval):
+if __name__ == '__main__':
     MoveGenerator.initialize()
     config = AlphaZeroConfig()
-    config.num_actors = num_actors
-    config.checkpoint_interval = checkpoint_interval
+    config.num_actors = 6
+    config.checkpoint_interval = 100
     alphazero(config)
