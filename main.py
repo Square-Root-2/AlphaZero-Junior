@@ -253,14 +253,18 @@ while True:
             action = alpha_zero.run_mcts(game, root, timer[not player] / 20)
             timer[not player] -= time.time() - start
 
-            print("Move: " + a_to_lan(action, game.history[-1]), end='\n\n')
-
             if timer[not player] < 0:
                 if is_timeout_vs_insufficient_material(game):
                     print("Draw by timeout vs. insufficient material.", end='\n\n')
                 else:
                     print("Computer lost on time.", end='\n\n')
                 break
+
+            if action == MoveIndexing.TOTAL_MOVES:
+                print("Computer lost by resignation.", end='\n\n')
+                break
+
+            print("Move: " + a_to_lan(action, game.history[-1]), end='\n\n')
 
             timer[not player] += increment
 

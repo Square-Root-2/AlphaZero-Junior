@@ -1,3 +1,4 @@
+import MoveIndexing
 from AlphaZeroConfig import AlphaZeroConfig
 from Game import Game
 from MoveGenerator import MoveGenerator
@@ -11,10 +12,11 @@ import time
 
 class AlphaZero(object):
 
-    def __init__(self):
+    def __init__(self, resignation_threshold=-0.9):
         MoveGenerator.initialize()
         self.config = AlphaZeroConfig()
         self.network = Network(keras.models.load_model('model'))
+        self.resignation_threshold = resignation_threshold
 
     def run_mcts(self, game: Game, root: Node, search_time):
         start = time.time()
@@ -43,8 +45,10 @@ class AlphaZero(object):
 
         return self.select_action(root)
 
-    @staticmethod
-    def select_action(root: Node):
+    def select_action(self, root: Node):
+        if root.value() < self.resignation_threshold:
+            return MoveIndexing.TOTAL_MOVES
+
         visit_counts = [(child.visit_count, action)
                         for action, child in root.children.items()]
         _, action = max(visit_counts)
