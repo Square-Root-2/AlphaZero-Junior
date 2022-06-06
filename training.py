@@ -32,7 +32,7 @@ def alphazero(config: AlphaZeroConfig):
     manager.start()
 
     replay_buffer = manager.ReplayBuffer(config)
-    step = manager.Value('i', 246)
+    step = manager.Value('i', 255)
     screen_lock = manager.Lock()
 
     pool = Pool(config.num_actors)

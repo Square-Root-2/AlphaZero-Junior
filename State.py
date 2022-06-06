@@ -201,7 +201,7 @@ class State(object):
     def print(self):
         for i in range(8):
             for j in range(8):
-                print(self.mailbox[8 * i + j], end='')
+                print(self.mailbox[8 * i + j], end=' ')
             print()
         print()
 
