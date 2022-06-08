@@ -32,7 +32,7 @@ def alphazero(config: AlphaZeroConfig):
     manager.start()
 
     replay_buffer = manager.ReplayBuffer(config)
-    step = manager.Value('i', 300)
+    step = manager.Value('i', 411)
     screen_lock = manager.Lock()
 
     pool = Pool(config.num_actors)
@@ -276,5 +276,5 @@ if __name__ == '__main__':
     MoveGenerator.initialize()
     config = AlphaZeroConfig()
     config.num_actors = 6
-    config.checkpoint_interval = 100
+    config.checkpoint_interval = 1000
     alphazero(config)
